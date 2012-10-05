@@ -15,5 +15,5 @@ build:
 	$(MAKE) -C $(KERNELDIR) M=$(PWD) modules
 
 clean:
-	rm -rf *.o *~ core .depend .*.cmd *.ko *.mod.c .tmp_versions Module.* modules.* dist
+	rm -rf *.o *~ core .depend .*.cmd *.ko *.mod.c .*.swp .tmp_versions Module.* modules.* dist
 
