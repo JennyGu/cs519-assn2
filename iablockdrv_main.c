@@ -15,9 +15,38 @@
 #include <linux/hdreg.h>
 #include "iablockdrv.h"
 
-static int __init iablockdrv_init(void)
-{
+static char *target_device = "\0";
+module_param(target_device, charp, 0000);
+
+struct iablockdrv_dev {
+    int major;
+    struct request_queue *queue;
+    struct gendisk *gd;
+    struct block_device *target_dev;
+};
+
+static struct iablockdrv_dev *drv_info;
+
+static int __init iablockdrv_init(void) {
+    drv_info = kzalloc(sizeof(struct iablockdrv_dev), GFP_KERNEL);
+    
+    if (!drv_info) {
+        return -ENOMEM;
+    }
+
 	pr_info("Module loaded...\n");
+	pr_info("\tUsing %s as a target driver\n", target_device);
+
+	if (NULL != target_device[0]) {
+	    drv_info->target_dev = blkdev_get_by_path(target_device, 
+	                                              FMODE_READ|FMODE_WRITE|FMODE_EXCL,
+	                                              drv_info);
+    }
+
+    if (NULL == drv_info->target_dev) {
+        return -1;
+    }
+
 	return 0;
 }
 
