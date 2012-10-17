@@ -44,27 +44,27 @@ static int __init iablockdrv_init(void) {
         return -ENOMEM;
     }
 
-	drv_info->major = register_blkdev(0, "iablockdrv");
+    drv_info->major = register_blkdev(0, "iablockdrv");
     if (drv_info->major <= 0) {
         return -EBUSY;
     }
 
 
 
-	if (NULL != target_device[0]) {
-	    drv_info->target_dev = blkdev_get_by_path(target_device, 
-	                                              FMODE_READ|FMODE_WRITE|FMODE_EXCL,
-	                                              drv_info);
+    if (NULL != target_device[0]) {
+        drv_info->target_dev = blkdev_get_by_path(target_device, 
+                                                  FMODE_READ|FMODE_WRITE|FMODE_EXCL,
+                                                  drv_info);
     }
 
     if (NULL == drv_info->target_dev) {
         return -1;
     }
 
-	pr_info("Module loaded... major number: %u\n", drv_info->major);
-	pr_info("\tUsing %s as a target driver\n", target_device);
+    pr_info("Module loaded... major number: %u\n", drv_info->major);
+    pr_info("\tUsing %s as a target driver\n", target_device);
 
-	return 0;
+    return 0;
 }
 
 static void __exit iablockdrv_exit(void)
@@ -74,7 +74,7 @@ static void __exit iablockdrv_exit(void)
     unregister_blkdev(drv_info->major, "iablockdrv");
     kfree(drv_info);
 
-	pr_info("Module unloaded...\n");
+    pr_info("Module unloaded...\n");
 }
 
 module_init(iablockdrv_init);
