@@ -27,50 +27,76 @@ struct iablockdrv_dev {
 
 static struct iablockdrv_dev *drv_info;
 
-static int iablockdrv_make_request(struct request_queue *q, struct bio *bio) {
+
+
+static void iablockdrv_make_request(struct request_queue *q, struct bio *bio) {
    
     /* Redirect the I/O request to our target device */
     bio->bi_bdev = drv_info->target_dev;
 
-    /* A non-zero return value causes the request to be reissued */
-    return 1;
+    /* Pass it on? --- THIS IS MOST LIKELY INCORRECT */
+    generic_make_request(bio);
 }
 
+
+
 static int __init iablockdrv_init(void) {
-    drv_info = kzalloc(sizeof(struct iablockdrv_dev), GFP_KERNEL);
-    drv_info-> target_dev = NULL;
-    
-    if (!drv_info) {
+    /* Allocate kernel memory for our driver information */
+    if (NULL == (drv_info = kzalloc(sizeof(struct iablockdrv_dev), GFP_KERNEL)))
         return -ENOMEM;
-    }
+    
+    /* Regsiter the device and request a major number */
+    if (0 >= (drv_info->major = register_blkdev(0, "iablockdrv")))
+        goto free; 
+    
+    /* Allocate a special queue to bypass queueing */
+    if (NULL == (drv_info->queue = blk_alloc_queue(GFP_KERNEL)))
+        goto unregister;
 
-    drv_info->major = register_blkdev(0, "iablockdrv");
-    if (drv_info->major <= 0) {
-        return -EBUSY;
-    }
+    /* And tell the kernel about our desire to skip queueing */
+    blk_queue_make_request(drv_info->queue, iablockdrv_make_request);
 
+    /* Try to open the target device to which our reads/writes will go */
+    drv_info->target_dev = blkdev_get_by_path(target_device, 
+                                              FMODE_READ|FMODE_WRITE|FMODE_EXCL,
+                                              drv_info);
 
+    if (NULL == drv_info->target_dev) 
+        goto unregister;
 
-    if (NULL != target_device[0]) {
-        drv_info->target_dev = blkdev_get_by_path(target_device, 
-                                                  FMODE_READ|FMODE_WRITE|FMODE_EXCL,
-                                                  drv_info);
-    }
+    if (NULL == (drv_info->gd = alloc_disk(1)))
+        goto unregister;
 
-    if (NULL == drv_info->target_dev) {
-        return -1;
-    }
+    drv_info->gd->major = drv_info->major;
+    drv_info->gd->first_minor = 1;
+    drv_info->gd->fops = NULL;
+    drv_info->gd->queue = drv_info->queue;
+    drv_info->gd->private_data = drv_info;
+    add_disk(drv_info->gd);
 
     pr_info("Module loaded... major number: %u\n", drv_info->major);
     pr_info("\tUsing %s as a target driver\n", target_device);
 
     return 0;
+
+unregister:
+    unregister_blkdev(drv_info->major, "iablockdrv");
+free:
+    kfree(drv_info);
+
+    return -ENOMEM;
 }
+
+
 
 static void __exit iablockdrv_exit(void)
 {
     blkdev_put(drv_info->target_dev, FMODE_READ|FMODE_WRITE|FMODE_EXCL);
 
+    
+    del_gendisk(drv_info->gd);
+    blk_cleanup_queue(drv_info->queue);
+    put_disk(drv_info->gd);
     unregister_blkdev(drv_info->major, "iablockdrv");
     kfree(drv_info);
 
