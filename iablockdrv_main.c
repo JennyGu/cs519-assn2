@@ -71,17 +71,18 @@ static int __init iablockdrv_init(void) {
     /* Allocate a special queue to bypass queueing */
     if (NULL == (drv_info->queue = blk_alloc_queue(GFP_KERNEL)))
         goto unregister;
+
     blk_queue_flush(drv_info->queue, REQ_FLUSH | REQ_FUA);
 
     /* And tell the kernel about our desire to skip queueing */
-    blk_queue_make_request(drv_info->queue, iablockdrv_make_request);
+    blk_queue_make_request(drv_info->queue, &iablockdrv_make_request);
 
     /* Try to open the target device to which our reads/writes will go */
     drv_info->target = blkdev_get_by_path(target_device, 
-                                          FMODE_READ|FMODE_WRITE|FMODE_EXCL,
+                                          FMODE_READ | FMODE_WRITE | FMODE_EXCL,
                                           drv_info);
 
-    if (NULL == drv_info->target) 
+    if (IS_ERR(drv_info->target))
         goto unregister;
 
     if (NULL == (drv_info->gd = alloc_disk(1)))
